@@ -1,0 +1,132 @@
+---
+title: "pfoliokitr-walkthrough"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{pfoliokitr-walkthrough}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette walks through the whole pfoliokitr pipeline: fetching price data, computing returns,
+checking the shape of the return distribution, computing performance and risk metrics and comparing a 
+stock vs benchmark.
+
+## 1. Fetch the adjusted price data
+
+`tckr_data()` fetches historical prices for a ticker and returns just the adjusted close series,
+which accounts for dividents and splits.
+
+```{r}
+library(pfoliokitr)
+
+lly <- tckr_data("LLY", from = "2020-01-01")
+spy <- tckr_data("SPY", from = "2020-01-01")
+
+head(lly)
+head(spy)
+```
+
+
+## 2. Compute daily log returns 
+
+`log_ret()` converts a price series into log returns.
+
+```{r}
+
+lly_ret <- log_ret(lly)
+spy_ret <- log_ret(spy)
+
+head(lly_ret)
+```
+
+
+## 3. Compute Performance metrics and check the shape of distribution
+
+
+`metrics()` computes a full set of standalone performance metrics for areturn series
+— annualised return, annualised volatility, Sharpe ratio, Sortino ratio, 
+Calmar ratio, and max drawdown — along with skewness and excess kurtosis,
+which describe the shape of the return distribution.
+
+```{r}
+lly_metrics <- metrics(lly_ret, 0.05)   #risk free rate of US
+lly_metrics
+```
+
+The skewness and kurtosis values are worth to look at before computing the risk metrics in
+the next step. Returns which are close to normal (Skew near 0, low excess kurtosis) make a 
+Gaussian VaR estimate reasonable. 
+
+Fat tails or strong skew mean a Gaussian assumption will likely understate the real risk hidden in 
+the tails for which either historical or modified (Corner-Fisher) is preferred instead.
+
+```{r}
+lly_metrics$skewness
+lly_metrics$kurtosis
+```
+
+## 4. Compute risk metrics
+
+`risk_metrics()` supports three distributional assumptions, chosen using the diagnostic above.
+
+```{r}
+risk_metrics(lly_ret, 0.95, method = "gaussian")
+risk_metrics(lly_ret, 0.95, method = "historical")
+risk_metrics(lly_ret, 0.95, method = "modified")
+```
+
+### A note on VaR/CVaR horizon
+
+The metrics above show only the **1-day** VaR/CVaR estimates. For longer time horizon 
+`bootstrap_ret()` simulates multi-day returns via block resampling, which avoids the 
+common (and often in-accurate) scaling of 1-day VaR by `sqrt(n)`.
+
+```{r}
+lly_10day_sim <- bootstrap_ret(lly_ret, 10, 10000)
+risk_metrics(lly_10day_sim, 0.95, "historical")
+```
+
+Note this is a **10-day** estimate and isn't directly comparable to the above metrics figures.
+
+
+##. 5 Compute metrics relative to the benchmark.
+
+`relative_metrics()` aligns the stock and benchmark on shared dates internally, so raw 
+unaligned return series can be passed in directly.
+
+```{r}
+relative_metrics(lly_ret, spy_ret,0.05)
+```
+
+Note this is a **10-day** estimate and isn't directly comparable to the 1-day figures above.
+
+##. 6 Combine everything into one summary.
+
+`combine_metrics` merges combination of `metrics()`, `risk_metrics()` & `relative_metrics` 
+output into a single object. which prints all of it together.
+
+```{r}
+full_summary <- combine_metrics(
+  metrics(lly_ret, 0.05),
+  risk_metrics(lly_ret, 0.95, "historical"),
+  relative_metrics(lly_ret,spy_ret)
+)
+
+print(combine_metrics,label = "LLY")
+```
+
+##. 7 Export it for further analysis.
+
+Any `portfolio_metrics` can be converted into a data frame, e.g. for creating a table across several stocks:
+
+```{r}
+as.data.frame(full_summary)
+```
+
