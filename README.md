@@ -26,16 +26,8 @@ This is a basic example which shows you how to solve a common problem:
 library(pfoliokitr)
 
 lly <- tckr_data("LLY", from = "2021-04-01")
-#> Registered S3 method overwritten by 'quantmod':
-#>   method            from
-#>   as.zoo.data.frame zoo
-#> Warning: LLY contains missing values. Some functions will not work if objects
-#> contain missing values in the middle of the series. Consider using na.omit(),
-#> na.approx(), na.fill(), etc to remove or replace them.
 spy <- tckr_data("SPY", from = "2021-04-01")
-#> Warning: SPY contains missing values. Some functions will not work if objects
-#> contain missing values in the middle of the series. Consider using na.omit(),
-#> na.approx(), na.fill(), etc to remove or replace them.
+
 
 lly_ret <- log_ret(lly)
 spy_ret <- log_ret(spy)
