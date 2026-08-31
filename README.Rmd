@@ -34,7 +34,7 @@ devtools::install_github("yvescandoit/pfoliokitr")
 
 This is a basic example which shows you how to solve a common problem:
 
-```{r example}
+```{r example, warning=FALSE,message=FALSE}
 library(pfoliokitr)
 
 lly <- tckr_data("LLY", from = "2021-04-01")
